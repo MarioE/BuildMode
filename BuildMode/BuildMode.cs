@@ -62,8 +62,11 @@ namespace BuildMode
                 if (type == 1 || type == 3)
                 {
                     Player plr = Main.player[e.Msg.whoAmI];
-                    Item selected = Main.player[e.Msg.whoAmI].inventory[Main.player[e.Msg.whoAmI].selectedItem];
-                    TShock.Players[e.Msg.whoAmI].GiveItem(selected.type, selected.name, plr.width, plr.height, 1);
+                    Item selected = plr.inventory[plr.selectedItem];
+                    if (selected.stack == 1)
+                    {
+                        TShock.Players[e.Msg.whoAmI].GiveItem(selected.type, selected.name, plr.width, plr.height, selected.maxStack);
+                    }
                 }
             }
         }
