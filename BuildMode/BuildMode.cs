@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -42,6 +43,7 @@ namespace BuildMode
             {
                 GameHooks.Update -= OnUpdate;
                 NetHooks.GetData -= OnGetData;
+                NetHooks.SendBytes -= OnSendBytes;
                 ServerHooks.Leave -= OnLeave;
             }
         }
@@ -51,6 +53,7 @@ namespace BuildMode
 
             GameHooks.Update += OnUpdate;
             NetHooks.GetData += OnGetData;
+            NetHooks.SendBytes += OnSendBytes;
             ServerHooks.Leave += OnLeave;
         }
 
@@ -63,7 +66,8 @@ namespace BuildMode
                 {
                     Player plr = Main.player[e.Msg.whoAmI];
                     Item selected = plr.inventory[plr.selectedItem];
-                    if (selected.stack == 1)
+                    int tile = e.Msg.readBuffer[e.Index + 9];
+                    if (selected.stack == 1 && ((type == 1 && selected.createTile == tile) || (type == 3 && selected.createWall == tile)))
                     {
                         TShock.Players[e.Msg.whoAmI].GiveItem(selected.type, selected.name, plr.width, plr.height, selected.maxStack);
                     }
@@ -74,25 +78,41 @@ namespace BuildMode
         {
             Build[plr] = false;
         }
+        void OnSendBytes(ServerSock sock, byte[] buffer, int offset, int count, HandledEventArgs e)
+        {
+            if (Build[sock.whoAmI])
+            {
+                if (buffer[offset + 4] == 7)
+                {
+                    byte[] raw = new byte[count];
+                    Buffer.BlockCopy(buffer, offset, raw, 0, count);
+                    Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, raw, 5, 4);
+                    raw[9] = 1;
+                    TShock.Players[sock.whoAmI].SendRawData(raw);
+                    e.Handled = true;
+                }
+                else if (buffer[offset + 4] == 18)
+                {
+                    byte[] raw = new byte[count];
+                    Buffer.BlockCopy(buffer, offset, raw, 0, count);
+                    raw[5] = 1;
+                    Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, raw, 6, 4);
+                    TShock.Players[sock.whoAmI].SendRawData(raw);
+                    e.Handled = true;
+                }
+            }
+        }
         void OnUpdate()
         {
             if ((DateTime.UtcNow - LastCheck).TotalSeconds > 1)
             {
-                LastCheck = DateTime.UtcNow;
-                bool dayTime = Main.dayTime;
-                double time = Main.time;
-                Main.dayTime = true;
-                Main.time = 27000.0;
-
                 for (int i = 0; i < 256; i++)
                 {
                     if (Build[i])
                     {
-                        NetMessage.SendData(7, i);
+                        NetMessage.SendData(18, i);
                     }
                 }
-                Main.dayTime = dayTime;
-                Main.time = time;
             }
         }
 
