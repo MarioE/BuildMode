@@ -63,7 +63,7 @@ namespace BuildMode
             if (e.MsgID == PacketTypes.Tile && !e.Handled && Build[e.Msg.whoAmI])
             {
                 int type = e.Msg.readBuffer[e.Index];
-                if (type == 1 || type == 3)
+                if (type == 1 || type == 3 || type == 6)
                 {
                     Player plr = Main.player[e.Msg.whoAmI];
                     Item selected = plr.inventory[plr.selectedItem];
@@ -71,6 +71,16 @@ namespace BuildMode
                     if (selected.stack == 1 && ((type == 1 && selected.createTile == tile) || (type == 3 && selected.createWall == tile)))
                     {
                         TShock.Players[e.Msg.whoAmI].GiveItem(selected.type, selected.name, plr.width, plr.height, selected.maxStack);
+                    }
+                    else if (type == 6)
+                    {
+                        foreach (Item i in plr.inventory)
+                        {
+                            if (i.type == 530 && i.stack == 1)
+                            {
+                                TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
+                            }
+                        }
                     }
                 }
             }
