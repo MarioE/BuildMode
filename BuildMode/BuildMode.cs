@@ -139,6 +139,17 @@ namespace BuildMode
                             {
                                 buffer[27] = 0;
                                 buffer[28] = 0;
+                                buffer[45] = 0;
+                                buffer[46] = 0;
+                            }
+                        }
+                        break;
+                    case 27:
+                        {
+                            Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
+                            if (!proj.friendly)
+                            {
+                                buffer[30] = 0;
                             }
                         }
                         break;
