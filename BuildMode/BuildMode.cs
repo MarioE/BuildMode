@@ -35,6 +35,7 @@ namespace BuildMode
         public BuildMode(Main game)
             : base(game)
         {
+            Order = 20;
         }
 
         protected override void Dispose(bool disposing)
@@ -80,7 +81,7 @@ namespace BuildMode
         }
         void OnSendBytes(ServerSock sock, byte[] buffer, int offset, int count, HandledEventArgs e)
         {
-            if (Build[sock.whoAmI])
+            if (Build[sock.whoAmI] && !e.Handled)
             {
                 if (buffer[offset + 4] == 7)
                 {
