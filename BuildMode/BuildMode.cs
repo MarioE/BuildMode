@@ -74,13 +74,17 @@ namespace BuildMode
                     }
                     else if (type == 5)
                     {
+                        int wireCount = 0;
                         foreach (Item i in plr.inventory)
                         {
-                            if (i.type == 530 && i.stack == 1)
+                            if (i.type == 530)
                             {
-                                TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
-                                break;
+                                wireCount += i.stack;
                             }
+                        }
+                        if (wireCount == 1)
+                        {
+                            TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
                         }
                     }
                 }
