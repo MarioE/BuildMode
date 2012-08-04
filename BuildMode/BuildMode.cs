@@ -122,6 +122,7 @@ namespace BuildMode
         {
             if ((DateTime.UtcNow - LastCheck).TotalSeconds > 1)
             {
+                LastCheck = DateTime.UtcNow;
                 for (int i = 0; i < 256; i++)
                 {
                     if (Build[i])
