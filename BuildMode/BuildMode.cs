@@ -20,7 +20,7 @@ namespace BuildMode
         private bool[] Build = new bool[256];
         public override string Description
         {
-            get { return "Adds a command for builders."; }
+            get { return "Adds a building command."; }
         }
         private DateTime LastCheck = DateTime.UtcNow;
         public override string Name
@@ -35,7 +35,7 @@ namespace BuildMode
         public BuildMode(Main game)
             : base(game)
         {
-            Order = 20;
+            Order = -5;
         }
 
         protected override void Dispose(bool disposing)
@@ -60,33 +60,57 @@ namespace BuildMode
 
         void OnGetData(GetDataEventArgs e)
         {
-            if (e.MsgID == PacketTypes.Tile && !e.Handled && Build[e.Msg.whoAmI])
+            if (!e.Handled && Build[e.Msg.whoAmI])
             {
-                int type = e.Msg.readBuffer[e.Index];
-                if (type == 1 || type == 3 || type == 5)
+                switch (e.MsgID)
                 {
-                    Player plr = Main.player[e.Msg.whoAmI];
-                    Item selected = plr.inventory[plr.selectedItem];
-                    int tile = e.Msg.readBuffer[e.Index + 9];
-                    if (selected.stack == 1 && ((type == 1 && selected.createTile == tile) || (type == 3 && selected.createWall == tile)))
-                    {
-                        TShock.Players[e.Msg.whoAmI].GiveItem(selected.type, selected.name, plr.width, plr.height, selected.maxStack);
-                    }
-                    else if (type == 5)
-                    {
-                        int wireCount = 0;
-                        foreach (Item i in plr.inventory)
+                    case PacketTypes.Tile:
                         {
-                            if (i.type == 530)
+                            int type = e.Msg.readBuffer[e.Index];
+                            if (type == 1 || type == 3 || type == 5)
                             {
-                                wireCount += i.stack;
+                                Player plr = Main.player[e.Msg.whoAmI];
+                                int tile = e.Msg.readBuffer[e.Index + 9];
+                                if (type == 1 || type == 3)
+                                {
+                                    Item lastItem = null;
+                                    int tileCount = 0;
+                                    foreach (Item i in plr.inventory)
+                                    {
+                                        if ((type == 1 && i.createTile == tile) || (type == 3 && i.createWall == tile))
+                                        {
+                                            lastItem = i;
+                                            tileCount += i.stack;
+                                        }
+                                    }
+                                    if (tileCount == 1)
+                                    {
+                                        TShock.Players[e.Msg.whoAmI].GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack);
+                                    }
+                                }
+                                else
+                                {
+                                    int wireCount = 0;
+                                    foreach (Item i in plr.inventory)
+                                    {
+                                        if (i.type == 530)
+                                        {
+                                            wireCount += i.stack;
+                                        }
+                                    }
+                                    if (wireCount == 1)
+                                    {
+                                        TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
+                                    }
+                                }
                             }
                         }
-                        if (wireCount == 1)
-                        {
-                            TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
-                        }
-                    }
+                        break;
+                    case PacketTypes.TogglePvp:
+                        Main.player[e.Msg.whoAmI].hostile = false;
+                        NetMessage.SendData(30, -1, -1, "", e.Msg.whoAmI);
+                        e.Handled = true;
+                        break;
                 }
             }
         }
@@ -98,23 +122,26 @@ namespace BuildMode
         {
             if (Build[sock.whoAmI] && !e.Handled)
             {
-                if (buffer[offset + 4] == 7)
+                switch (buffer[4])
                 {
-                    byte[] raw = new byte[count];
-                    Buffer.BlockCopy(buffer, offset, raw, 0, count);
-                    Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, raw, 5, 4);
-                    raw[9] = 1;
-                    TShock.Players[sock.whoAmI].SendRawData(raw);
-                    e.Handled = true;
-                }
-                else if (buffer[offset + 4] == 18)
-                {
-                    byte[] raw = new byte[count];
-                    Buffer.BlockCopy(buffer, offset, raw, 0, count);
-                    raw[5] = 1;
-                    Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, raw, 6, 4);
-                    TShock.Players[sock.whoAmI].SendRawData(raw);
-                    e.Handled = true;
+                    case 7:
+                        Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 5, 4);
+                        buffer[9] = 1;
+                        break;
+                    case 18:
+                        buffer[5] = 1;
+                        Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 6, 4);
+                        break;
+                    case 23:
+                        {
+                            NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
+                            if (!npc.friendly)
+                            {
+                                buffer[27] = 0;
+                                buffer[28] = 0;
+                            }
+                        }
+                        break;
                 }
             }
         }
@@ -137,7 +164,17 @@ namespace BuildMode
         {
             Build[e.Player.Index] = !Build[e.Player.Index];
             e.Player.SendMessage(String.Format("{0}abled build mode.", Build[e.Player.Index] ? "En" : "Dis"), Color.Green);
+
             NetMessage.SendData(7, e.Player.Index);
+            for (int i = 0; i < 200; i++)
+            {
+                NetMessage.SendData(23, e.Player.Index, -1, "", i);
+            }
+            if (Build[e.Player.Index] && e.TPlayer.hostile)
+            {
+                e.TPlayer.hostile = false;
+                NetMessage.SendData(30, -1, -1, "", e.Player.Index);
+            }
         }
     }
 }
