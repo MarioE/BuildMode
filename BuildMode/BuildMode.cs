@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Timers;
 using Hooks;
 using Terraria;
 using TShockAPI;
@@ -27,6 +28,7 @@ namespace BuildMode
         {
             get { return "BuildMode"; }
         }
+        private Timer Timer;
         public override Version Version
         {
             get { return Assembly.GetExecutingAssembly().GetName().Version; }
@@ -42,7 +44,6 @@ namespace BuildMode
         {
             if (disposing)
             {
-                GameHooks.Update -= OnUpdate;
                 NetHooks.GetData -= OnGetData;
                 NetHooks.SendBytes -= OnSendBytes;
                 ServerHooks.Leave -= OnLeave;
@@ -52,12 +53,26 @@ namespace BuildMode
         {
             Commands.ChatCommands.Add(new Command("buildmode", BuildModeCmd, "buildmode"));
 
-            GameHooks.Update += OnUpdate;
             NetHooks.GetData += OnGetData;
             NetHooks.SendBytes += OnSendBytes;
             ServerHooks.Leave += OnLeave;
+
+            Timer = new Timer(1000);
+            Timer.Elapsed += OnElapsed;
+            Timer.Start();
         }
 
+        void OnElapsed(object sender, ElapsedEventArgs e)
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                if (Build[i])
+                {
+                    NetMessage.SendData(7, i);
+                    TShock.Players[i].SetBuff(11, Int16.MaxValue);
+                }
+            }
+        }
         void OnGetData(GetDataEventArgs e)
         {
             if (!e.Handled && Build[e.Msg.whoAmI])
@@ -127,6 +142,8 @@ namespace BuildMode
                     case 7:
                         Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 5, 4);
                         buffer[9] = 1;
+                        Buffer.BlockCopy(BitConverter.GetBytes(Main.maxTilesY), 0, buffer, 28, 4);
+                        Buffer.BlockCopy(BitConverter.GetBytes(Main.maxTilesY), 0, buffer, 32, 4);
                         break;
                     case 18:
                         buffer[5] = 1;
@@ -153,20 +170,6 @@ namespace BuildMode
                             }
                         }
                         break;
-                }
-            }
-        }
-        void OnUpdate()
-        {
-            if ((DateTime.UtcNow - LastCheck).TotalSeconds > 1)
-            {
-                LastCheck = DateTime.UtcNow;
-                for (int i = 0; i < 256; i++)
-                {
-                    if (Build[i])
-                    {
-                        NetMessage.SendData(18, i);
-                    }
                 }
             }
         }
