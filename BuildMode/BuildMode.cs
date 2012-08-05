@@ -135,7 +135,7 @@ namespace BuildMode
         }
         void OnSendBytes(ServerSock sock, byte[] buffer, int offset, int count, HandledEventArgs e)
         {
-            if (Build[sock.whoAmI] && !e.Handled)
+            if (Build[sock.whoAmI])
             {
                 switch (buffer[4])
                 {
@@ -150,22 +150,48 @@ namespace BuildMode
                         Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 6, 4);
                         break;
                     case 23:
+                        NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
+                        if (!npc.friendly)
                         {
-                            NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
-                            if (!npc.friendly)
-                            {
-                                buffer[27] = 0;
-                                buffer[28] = 0;
-                            }
+                            buffer[47] = 0;
+                            buffer[48] = 0;
                         }
                         break;
                     case 27:
+                        Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
+                        if (!proj.friendly)
                         {
-                            Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
-                            if (!proj.friendly)
-                            {
-                                buffer[30] = 0;
-                            }
+                            buffer[30] = 0;
+                        }
+                        break;
+                }
+            }
+            else
+            {
+                switch (buffer[4])
+                {
+                    case 7:
+                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.time), 0, buffer, 5, 4);
+                        buffer[9] = (byte)(Main.dayTime ? 1 : 0);
+                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.worldSurface), 0, buffer, 28, 4);
+                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.rockLayer), 0, buffer, 32, 4);
+                        break;
+                    case 18:
+                        buffer[5] = (byte)(Main.dayTime ? 1 : 0);
+                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.time), 0, buffer, 6, 4);
+                        break;
+                    case 23:
+                        NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
+                        if (!npc.friendly)
+                        {
+                            Buffer.BlockCopy(BitConverter.GetBytes((short)npc.netID), 0, buffer, 47, 2);
+                        }
+                        break;
+                    case 27:
+                        Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
+                        if (!proj.friendly)
+                        {
+                            buffer[30] = (byte)proj.type;
                         }
                         break;
                 }
