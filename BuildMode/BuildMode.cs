@@ -156,7 +156,9 @@ namespace BuildMode
                     }
                     break;
                 case 27:
-                    Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
+                    short id = BitConverter.ToInt16(buffer, 5);
+                    int owner = buffer[29];
+                    Projectile proj = Main.projectile[TShock.Utils.SearchProjectile(id, owner)];
                     if (!proj.friendly)
                     {
                         buffer[30] = (byte)(build ? 0 : proj.type);
