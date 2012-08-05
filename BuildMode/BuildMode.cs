@@ -156,8 +156,6 @@ namespace BuildMode
                             {
                                 buffer[27] = 0;
                                 buffer[28] = 0;
-                                buffer[45] = 0;
-                                buffer[46] = 0;
                             }
                         }
                         break;
