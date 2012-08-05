@@ -135,65 +135,33 @@ namespace BuildMode
         }
         void OnSendBytes(ServerSock sock, byte[] buffer, int offset, int count, HandledEventArgs e)
         {
-            if (Build[sock.whoAmI])
+            bool build = Build[sock.whoAmI];
+            switch (buffer[4])
             {
-                switch (buffer[4])
-                {
-                    case 7:
-                        Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 5, 4);
-                        buffer[9] = 1;
-                        Buffer.BlockCopy(BitConverter.GetBytes(Main.maxTilesY), 0, buffer, 28, 4);
-                        Buffer.BlockCopy(BitConverter.GetBytes(Main.maxTilesY), 0, buffer, 32, 4);
-                        break;
-                    case 18:
-                        buffer[5] = 1;
-                        Buffer.BlockCopy(BitConverter.GetBytes(27000), 0, buffer, 6, 4);
-                        break;
-                    case 23:
-                        NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
-                        if (!npc.friendly)
-                        {
-                            Buffer.BlockCopy(BitConverter.GetBytes(0), 0, buffer, 27, 4);
-                        }
-                        break;
-                    case 27:
-                        Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
-                        if (!proj.friendly)
-                        {
-                            buffer[30] = 0;
-                        }
-                        break;
-                }
-            }
-            else
-            {
-                switch (buffer[4])
-                {
-                    case 7:
-                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.time), 0, buffer, 5, 4);
-                        buffer[9] = (byte)(Main.dayTime ? 1 : 0);
-                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.worldSurface), 0, buffer, 28, 4);
-                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.rockLayer), 0, buffer, 32, 4);
-                        break;
-                    case 18:
-                        buffer[5] = (byte)(Main.dayTime ? 1 : 0);
-                        Buffer.BlockCopy(BitConverter.GetBytes((int)Main.time), 0, buffer, 6, 4);
-                        break;
-                    case 23:
-                        NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
-                        if (!npc.friendly)
-                        {
-                            Buffer.BlockCopy(BitConverter.GetBytes(npc.life), 0, buffer, 27, 4);
-                        }
-                        break;
-                    case 27:
-                        Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
-                        if (!proj.friendly)
-                        {
-                            buffer[30] = (byte)proj.type;
-                        }
-                        break;
-                }
+                case 7:
+                    Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, buffer, 5, 4);
+                    buffer[9] = (byte)(Main.dayTime || build ? 1 : 0);
+                    Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.worldSurface), 0, buffer, 28, 4);
+                    Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.rockLayer), 0, buffer, 32, 4);
+                    break;
+                case 18:
+                    buffer[5] = (byte)(Main.dayTime || build ? 1 : 0);
+                    Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, buffer, 6, 4);
+                    break;
+                case 23:
+                    NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
+                    if (!npc.friendly)
+                    {
+                        Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, buffer, 27, 4);
+                    }
+                    break;
+                case 27:
+                    Projectile proj = Main.projectile[BitConverter.ToInt16(buffer, 5)];
+                    if (!proj.friendly)
+                    {
+                        buffer[30] = (byte)(build ? 0 : proj.type);
+                    }
+                    break;
             }
         }
 
