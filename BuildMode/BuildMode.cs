@@ -153,8 +153,7 @@ namespace BuildMode
                         NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
                         if (!npc.friendly)
                         {
-                            buffer[47] = 0;
-                            buffer[48] = 0;
+                            Buffer.BlockCopy(BitConverter.GetBytes(0), 0, buffer, 27, 4);
                         }
                         break;
                     case 27:
@@ -184,7 +183,7 @@ namespace BuildMode
                         NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
                         if (!npc.friendly)
                         {
-                            Buffer.BlockCopy(BitConverter.GetBytes((short)npc.netID), 0, buffer, 47, 2);
+                            Buffer.BlockCopy(BitConverter.GetBytes(npc.life), 0, buffer, 27, 4);
                         }
                         break;
                     case 27:
