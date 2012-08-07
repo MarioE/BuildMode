@@ -98,9 +98,9 @@ namespace BuildMode
                                             tileCount += i.stack;
                                         }
                                     }
-                                    if (tileCount == 1)
+                                    if (tileCount <= 5)
                                     {
-                                        TShock.Players[e.Msg.whoAmI].GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack);
+                                        TShock.Players[e.Msg.whoAmI].GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack + 1 - tileCount);
                                     }
                                 }
                                 else
