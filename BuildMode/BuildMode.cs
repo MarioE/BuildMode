@@ -98,7 +98,7 @@ namespace BuildMode
                                             tileCount += i.stack;
                                         }
                                     }
-                                    if (tileCount <= 5)
+                                    if (tileCount <= 5 && lastItem != null)
                                     {
                                         TShock.Players[e.Msg.whoAmI].GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack + 1 - tileCount);
                                     }
