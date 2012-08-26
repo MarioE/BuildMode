@@ -69,7 +69,7 @@ namespace BuildMode
 							int count = 0;
 							Player plr = Main.player[e.Msg.whoAmI];
 							int type = e.Msg.readBuffer[e.Index];
-							if (type == 1 || type == 3)
+							if ((type == 1 || type == 3) && plr.inventory[plr.selectedItem].type != 213)
 							{
 								int tile = e.Msg.readBuffer[e.Index + 9];
 								Item lastItem = null;
