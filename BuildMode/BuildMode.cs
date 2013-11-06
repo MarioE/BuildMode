@@ -79,6 +79,8 @@ namespace BuildMode
 					}
 					tsplr.SetBuff(3, Int16.MaxValue);
 					tsplr.SetBuff(11, Int16.MaxValue);
+					tsplr.SetBuff(57, Int16.MaxValue);
+					tsplr.SetBuff(63, Int16.MaxValue);
 				}
 			}
 		}
@@ -93,23 +95,39 @@ namespace BuildMode
 				{
 					case PacketTypes.PlayerDamage:
 						{
-							short damage = BitConverter.ToInt16(e.Msg.readBuffer, e.Index + 2);
-							tsplr.Heal(damage);
+							tsplr.Heal(BitConverter.ToInt16(e.Msg.readBuffer, e.Index + 2));
+							plr.statLife = plr.statLifeMax;
 						}
 						break;
 					case PacketTypes.Teleport:
 						if ((e.Msg.readBuffer[e.Index] & 1) == 0 && (e.Msg.readBuffer[e.Index] & 2) != 2)
 						{
-							if (tsplr.Group.HasPermission(Permissions.rod))
+							for (int i = 0; i < Player.maxBuffs; i++)
 							{
-								for (int i = 0; i < Player.maxBuffs; i++)
+								if (plr.buffType[i] == 88 && plr.buffTime[i] > 0)
 								{
-									if (plr.buffType[i] == 88 && plr.buffTime[i] > 0)
-									{
-										tsplr.Heal(100);
-									}
+									tsplr.Heal(100);
 								}
 							}
+						}
+						break;
+					case PacketTypes.PaintTile:
+					case PacketTypes.PaintWall:
+						{
+							int count = 0;
+							int type = e.Msg.readBuffer[e.Index + 8];
+							
+							Item lastItem = null;
+							foreach (Item i in plr.inventory)
+							{
+								if (i.paint == type)
+								{
+									lastItem = i;
+									count += i.stack;
+								}
+							}
+							if (count <= 5 && lastItem != null)
+								tsplr.GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack + 1 - count);
 						}
 						break;
 					case PacketTypes.Tile:
