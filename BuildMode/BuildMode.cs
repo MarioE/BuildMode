@@ -4,29 +4,30 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Hooks;
+using System.Timers;
 using Terraria;
+using TerrariaApi.Server;
 using TShockAPI;
 
 namespace BuildMode
 {
-	[APIVersion(1, 12)]
+	[ApiVersion(1, 14)]
 	public class BuildMode : TerrariaPlugin
 	{
 		public override string Author
 		{
 			get { return "MarioE"; }
 		}
-		private bool[] Build = new bool[256];
+		bool[] Build = new bool[256];
 		public override string Description
 		{
 			get { return "Adds a building command."; }
 		}
-		private DateTime LastCheck = DateTime.UtcNow;
 		public override string Name
 		{
 			get { return "BuildMode"; }
 		}
+		Timer Timer = new Timer(1000);
 		public override Version Version
 		{
 			get { return Assembly.GetExecutingAssembly().GetName().Version; }
@@ -35,39 +36,85 @@ namespace BuildMode
 		public BuildMode(Main game)
 			: base(game)
 		{
-			Order = -10;
+			Order = 10;
 		}
 
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
 			{
-				GameHooks.Update -= OnUpdate;
-				NetHooks.GetData -= OnGetData;
-				NetHooks.SendBytes -= OnSendBytes;
-				ServerHooks.Leave -= OnLeave;
+				Timer.Dispose();
+
+				ServerApi.Hooks.NetGetData.Deregister(this, OnGetData);
+				ServerApi.Hooks.NetSendBytes.Deregister(this, OnSendBytes);
+				ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
 			}
 		}
 		public override void Initialize()
 		{
 			Commands.ChatCommands.Add(new Command("buildmode", BuildModeCmd, "buildmode"));
 
-			GameHooks.Update += OnUpdate;
-			NetHooks.GetData += OnGetData;
-			NetHooks.SendBytes += OnSendBytes;
-			ServerHooks.Leave += OnLeave;
+			ServerApi.Hooks.NetGetData.Register(this, OnGetData);
+			ServerApi.Hooks.NetSendBytes.Register(this, OnSendBytes);
+			ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
+
+			Timer.Elapsed += OnElapsed;
+			Timer.Start();
 		}
 
+		void OnElapsed(object sender, ElapsedEventArgs e)
+		{
+			for (int i = 0; i < Build.Length; i++)
+			{
+				if (Build[i])
+				{
+					Player plr = Main.player[i];
+					TSPlayer tsplr = TShock.Players[i];
+
+					NetMessage.SendData(7, i);
+					if (plr.statLife < plr.statLifeMax && !plr.dead)
+					{
+						tsplr.Heal(plr.statLifeMax - plr.statLife);
+						plr.statLife = plr.statLifeMax;
+					}
+					tsplr.SetBuff(3, Int16.MaxValue);
+					tsplr.SetBuff(11, Int16.MaxValue);
+				}
+			}
+		}
 		void OnGetData(GetDataEventArgs e)
 		{
 			if (!e.Handled && Build[e.Msg.whoAmI])
 			{
+				Player plr = Main.player[e.Msg.whoAmI];
+				TSPlayer tsplr = TShock.Players[e.Msg.whoAmI];
+
 				switch (e.MsgID)
 				{
+					case PacketTypes.PlayerDamage:
+						{
+							short damage = BitConverter.ToInt16(e.Msg.readBuffer, e.Index + 2);
+							tsplr.Heal(damage);
+						}
+						break;
+					case PacketTypes.Teleport:
+						if ((e.Msg.readBuffer[e.Index] & 1) == 0 && (e.Msg.readBuffer[e.Index] & 2) != 2)
+						{
+							if (tsplr.Group.HasPermission(Permissions.rod))
+							{
+								for (int i = 0; i < Player.maxBuffs; i++)
+								{
+									if (plr.buffType[i] == 88 && plr.buffTime[i] > 0)
+									{
+										tsplr.Heal(100);
+									}
+								}
+							}
+						}
+						break;
 					case PacketTypes.Tile:
 						{
 							int count = 0;
-							Player plr = Main.player[e.Msg.whoAmI];
 							int type = e.Msg.readBuffer[e.Index];
 							if ((type == 1 || type == 3) && plr.inventory[plr.selectedItem].type != 213)
 							{
@@ -82,87 +129,72 @@ namespace BuildMode
 									}
 								}
 								if (count <= 5 && lastItem != null)
-								{
-									TShock.Players[e.Msg.whoAmI].GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack + 1 - count);
-								}
+									tsplr.GiveItem(lastItem.type, lastItem.name, plr.width, plr.height, lastItem.maxStack + 1 - count);
 							}
-							else if (type == 5)
+							else if (type == 5 || type == 10 || type == 12)
 							{
 								foreach (Item i in plr.inventory)
 								{
 									if (i.type == 530)
-									{
 										count += i.stack;
-									}
 								}
-								if (count == 1)
+								if (count <= 5)
+									tsplr.GiveItem(530, "Wire", plr.width, plr.height, 1000 - count);
+							}
+							else if (type == 8)
+							{
+								foreach (Item i in plr.inventory)
 								{
-									TShock.Players[e.Msg.whoAmI].GiveItem(530, "Wire", plr.width, plr.height, 250);
+									if (i.type == 849)
+										count += i.stack;
 								}
+								if (count <= 5)
+									tsplr.GiveItem(849, "Actuator", plr.width, plr.height, 1000 - count);
 							}
 						}
 						break;
 					case PacketTypes.TogglePvp:
-						Main.player[e.Msg.whoAmI].hostile = false;
+						plr.hostile = false;
 						NetMessage.SendData(30, -1, -1, "", e.Msg.whoAmI);
 						e.Handled = true;
 						break;
 				}
 			}
 		}
-		void OnLeave(int plr)
+		void OnLeave(LeaveEventArgs e)
 		{
-			Build[plr] = false;
+			Build[e.Who] = false;
 		}
-		void OnSendBytes(ServerSock sock, byte[] buffer, int offset, int count, HandledEventArgs e)
+		void OnSendBytes(SendBytesEventArgs e)
 		{
-			bool build = Build[sock.whoAmI];
-			switch (buffer[4])
+			bool build = Build[e.Socket.whoAmI];
+			switch (e.Buffer[4])
 			{
 				case 7:
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, buffer, 5, 4);
-					buffer[9] = (byte)(Main.dayTime || build ? 1 : 0);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.worldSurface), 0, buffer, 28, 4);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.rockLayer), 0, buffer, 32, 4);
+					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, e.Buffer, 5, 4);
+					e.Buffer[9] = (byte)(Main.dayTime || build ? 1 : 0);
+					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.worldSurface), 0, e.Buffer, 29, 4);
+					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.rockLayer), 0, e.Buffer, 33, 4);
 					break;
 				case 18:
-					buffer[5] = (byte)(Main.dayTime || build ? 1 : 0);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, buffer, 6, 4);
+					e.Buffer[5] = (byte)(Main.dayTime || build ? 1 : 0);
+					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, e.Buffer, 6, 4);
 					break;
 				case 23:
-					NPC npc = Main.npc[BitConverter.ToInt16(buffer, 5)];
+					NPC npc = Main.npc[BitConverter.ToInt16(e.Buffer, 5)];
 					if (!npc.friendly)
-					{
-						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, buffer, 27, 4);
-					}
+						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, e.Buffer, 25, 4);
 					break;
 				case 27:
-					short id = BitConverter.ToInt16(buffer, 5);
-					int owner = buffer[29];
+					short id = BitConverter.ToInt16(e.Buffer, 5);
+					int owner = e.Buffer[29];
 					Projectile proj = Main.projectile[TShock.Utils.SearchProjectile(id, owner)];
 					if (!proj.friendly)
-					{
-						buffer[30] = (byte)(build ? 0 : proj.type);
-					}
+						Buffer.BlockCopy(BitConverter.GetBytes((short)(build ? 0 : proj.type)), 0, e.Buffer, 30, 2);
 					break;
 			}
 		}
-		void OnUpdate()
-		{
-			if ((DateTime.UtcNow - LastCheck).TotalSeconds > 1)
-			{
-				LastCheck = DateTime.UtcNow;
-				for (int i = 0; i < 256; i++)
-				{
-					if (Build[i])
-					{
-						NetMessage.SendData(7, i);
-						TShock.Players[i].SetBuff(11, Int16.MaxValue);
-					}
-				}
-			}
-		}
-
+		
 		void BuildModeCmd(CommandArgs e)
 		{
 			Build[e.Player.Index] = !Build[e.Player.Index];
