@@ -137,6 +137,8 @@ namespace BuildMode
 							if ((type == 1 || type == 3) && plr.inventory[plr.selectedItem].type != 213)
 							{
 								int tile = e.Msg.readBuffer[e.Index + 9];
+								if (tsplr.SelectedItem.tileWand > 0)
+									tile = tsplr.SelectedItem.tileWand;
 								Item lastItem = null;
 								foreach (Item i in plr.inventory)
 								{
