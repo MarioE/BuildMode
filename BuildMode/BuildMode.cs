@@ -79,7 +79,6 @@ namespace BuildMode
 					}
 					tsplr.SetBuff(3, Int16.MaxValue);
 					tsplr.SetBuff(11, Int16.MaxValue);
-					tsplr.SetBuff(57, Int16.MaxValue);
 					tsplr.SetBuff(63, Int16.MaxValue);
 				}
 			}
