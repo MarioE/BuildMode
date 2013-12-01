@@ -192,6 +192,7 @@ namespace BuildMode
 				case 7:
 					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, e.Buffer, 5, 4);
 					e.Buffer[9] = (byte)(Main.dayTime || build ? 1 : 0);
+					e.Buffer[12] = (byte)(Main.eclipse && !build ? 1 : 0);
 					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.worldSurface), 0, e.Buffer, 29, 4);
 					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.rockLayer), 0, e.Buffer, 33, 4);
 					break;
