@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Timers;
 using Terraria;
 using TerrariaApi.Server;
@@ -11,7 +7,7 @@ using TShockAPI;
 
 namespace BuildMode
 {
-	[ApiVersion(1, 14)]
+	[ApiVersion(1, 15)]
 	public class BuildMode : TerrariaPlugin
 	{
 		public override string Author
@@ -219,37 +215,26 @@ namespace BuildMode
 		void BuildModeCmd(CommandArgs e)
 		{
 			Build[e.Player.Index] = !Build[e.Player.Index];
-			if (Build[e.Player.Index])
-			{
-				e.Player.SendMessage("Enabled build mode.", Color.Green);
-			}
-			else
-			{
-				e.Player.SendMessage("Disabled build mode.", Color.Green);
-			}
+			e.Player.SendSuccessMessage((Build[e.Player.Index] ? "En" : "Dis") + "abled build mode.");
 			// Time
 			NetMessage.SendData(7, e.Player.Index);
 			// NPCs
 			for (int i = 0; i < 200; i++)
 			{
 				if (!Main.npc[i].friendly)
-				{
-					NetMessage.SendData(23, e.Player.Index, -1, "", i);
-				}
+					e.Player.SendData(PacketTypes.NpcUpdate, "", i);
 			}
 			// Projectiles
 			for (int i = 0; i < 1000; i++)
 			{
 				if (!Main.projectile[i].friendly)
-				{
-					NetMessage.SendData(27, e.Player.Index, -1, "", i);
-				}
+					e.Player.SendData(PacketTypes.ProjectileNew, "", i);
 			}
 			// PvP
 			if (e.TPlayer.hostile)
 			{
 				e.TPlayer.hostile = false;
-				NetMessage.SendData(30, -1, -1, "", e.Player.Index);
+				e.Player.SendData(PacketTypes.TogglePvp, "", e.Player.Index);
 			}
 		}
 	}
