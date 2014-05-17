@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Reflection;
 using System.Timers;
 using Terraria;
@@ -7,7 +8,7 @@ using TShockAPI;
 
 namespace BuildMode
 {
-	[ApiVersion(1, 15)]
+	[ApiVersion(1, 16)]
 	public class BuildMode : TerrariaPlugin
 	{
 		public override string Author
@@ -73,9 +74,13 @@ namespace BuildMode
 						tsplr.Heal(plr.statLifeMax - plr.statLife);
 						plr.statLife = plr.statLifeMax;
 					}
-					tsplr.SetBuff(3, Int16.MaxValue);
-					tsplr.SetBuff(11, Int16.MaxValue);
-					tsplr.SetBuff(63, Int16.MaxValue);
+					tsplr.SetBuff(3, Int16.MaxValue); // Swiftness
+					tsplr.SetBuff(11, Int16.MaxValue); // Shine
+					tsplr.SetBuff(12, Int16.MaxValue); // Night owl
+					tsplr.SetBuff(63, Int16.MaxValue); // Panic
+					tsplr.SetBuff(104, Int16.MaxValue); // Mining
+					tsplr.SetBuff(107, Int16.MaxValue); // Builder
+					tsplr.SetBuff(113, Int16.MaxValue); // Lifeforce
 				}
 			}
 		}
@@ -183,31 +188,47 @@ namespace BuildMode
 		void OnSendBytes(SendBytesEventArgs e)
 		{
 			bool build = Build[e.Socket.whoAmI];
-			switch (e.Buffer[4])
+			switch (e.Buffer[2])
 			{
 				case 7:
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, e.Buffer, 5, 4);
-					e.Buffer[9] = (byte)(Main.dayTime || build ? 1 : 0);
-					e.Buffer[12] = (byte)(Main.eclipse && !build ? 1 : 0);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.worldSurface), 0, e.Buffer, 29, 4);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? Main.maxTilesY : (int)Main.rockLayer), 0, e.Buffer, 33, 4);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? 0f : Main.maxRaining), 0, e.Buffer, 92, 4);
+					using (var writer = new BinaryWriter(new MemoryStream(e.Buffer, 3, e.Count - 3)))
+					{
+						writer.Write(build ? 27000 : (int)Main.time);
+						BitsByte bb = 0;
+						bb[0] = build ? true : Main.dayTime;
+						bb[1] = build ? false : Main.bloodMoon;
+						bb[2] = build ? false : Main.eclipse;
+						writer.Write(bb);
+
+						writer.BaseStream.Position += 9;
+						writer.Write(build ? (short)Main.maxTilesY : (short)Main.worldSurface);
+						writer.Write(build ? (short)Main.maxTilesY : (short)Main.rockLayer);
+
+						writer.BaseStream.Position += 4;
+						writer.Write(Main.worldName);
+
+						writer.BaseStream.Position += 49;
+						writer.Write(build ? 0f : Main.maxRaining);
+					}
 					break;
 				case 18:
-					e.Buffer[5] = (byte)(Main.dayTime || build ? 1 : 0);
-					Buffer.BlockCopy(BitConverter.GetBytes(build ? 27000 : (int)Main.time), 0, e.Buffer, 6, 4);
+					using (var writer = new BinaryWriter(new MemoryStream(e.Buffer, 3, e.Count - 3)))
+					{
+						writer.Write(build ? true : Main.dayTime);
+						writer.Write(build ? 27000 : (int)Main.time);
+					}
 					break;
 				case 23:
-					NPC npc = Main.npc[BitConverter.ToInt16(e.Buffer, 5)];
+					NPC npc = Main.npc[BitConverter.ToInt16(e.Buffer, 3)];
 					if (!npc.friendly)
-						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, e.Buffer, 25, 4);
+						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, e.Buffer, 23, 4);
 					break;
 				case 27:
-					short id = BitConverter.ToInt16(e.Buffer, 5);
-					int owner = e.Buffer[29];
+					short id = BitConverter.ToInt16(e.Buffer, 3);
+					int owner = e.Buffer[27];
 					Projectile proj = Main.projectile[TShock.Utils.SearchProjectile(id, owner)];
 					if (!proj.friendly)
-						Buffer.BlockCopy(BitConverter.GetBytes((short)(build ? 0 : proj.type)), 0, e.Buffer, 30, 2);
+						Buffer.BlockCopy(BitConverter.GetBytes((short)(build ? 0 : proj.type)), 0, e.Buffer, 28, 2);
 					break;
 			}
 		}
