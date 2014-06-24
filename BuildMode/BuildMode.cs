@@ -221,7 +221,7 @@ namespace BuildMode
 				case 23:
 					NPC npc = Main.npc[BitConverter.ToInt16(e.Buffer, 3)];
 					if (!npc.friendly)
-						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0 : npc.life), 0, e.Buffer, 23, 4);
+						Buffer.BlockCopy(BitConverter.GetBytes((short)(build ? 0 : npc.netID)), 0, e.Buffer, 39, 2);
 					break;
 				case 27:
 					short id = BitConverter.ToInt16(e.Buffer, 3);
