@@ -222,15 +222,8 @@ namespace BuildMode
 					NPC npc = Main.npc[BitConverter.ToInt16(e.Buffer, 3)];
 					if (!npc.friendly)
 					{
-						BitsByte bb = e.Buffer[22];
-
-						int index = 23;
-						for (int i = 2; i < 6; i++)
-						{
-							if (bb[i])
-								index += 4;
-						}
-						Buffer.BlockCopy(BitConverter.GetBytes((short)(build ? 0 : npc.netID)), 0, e.Buffer, index, 2);
+						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0f : npc.position.X), 0, e.Buffer, 5, 4);
+						Buffer.BlockCopy(BitConverter.GetBytes(build ? 0f : npc.position.Y), 0, e.Buffer, 9, 4);
 					}
 					break;
 				case 27:
